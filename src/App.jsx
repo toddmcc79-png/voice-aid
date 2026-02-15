@@ -183,45 +183,51 @@ export default function App() {
 const styles = {
   wrapper: {
     height: "100vh",
+    width: "100vw",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#000",
   },
+
   container: {
     position: "relative",
-    width: "390px",
-    height: "844px",
+    aspectRatio: "390 / 844",  // keeps iPhone shape
+    height: "95vh",            // scales to screen height
+    maxWidth: "100%",
     backgroundImage: "url('/background.png')",
     backgroundSize: "contain",
     backgroundPosition: "center",
     backgroundRepeat: "no-repeat",
   },
+
   yesZone: {
     position: "absolute",
     top: "8%",
     left: "50%",
     transform: "translateX(-50%)",
-    width: "260px",
-    height: "260px",
+    width: "65%",
+    aspectRatio: "1 / 1",
     borderRadius: "50%",
   },
+
   mainZone: {
     position: "absolute",
     top: "38%",
     left: "50%",
     transform: "translateX(-50%)",
-    width: "260px",
-    height: "260px",
+    width: "65%",
+    aspectRatio: "1 / 1",
     borderRadius: "50%",
   },
+
   noZone: {
     position: "absolute",
     bottom: "6%",
     left: "50%",
     transform: "translateX(-50%)",
-    width: "260px",
-    height: "260px",
+    width: "65%",
+    aspectRatio: "1 / 1",
     borderRadius: "50%",
   },
 };
