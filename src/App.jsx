@@ -209,7 +209,7 @@ const styles = {
   position: "absolute",
   inset: 0,
   // green region above diagonal (with a little margin away from the white stripe)
-  clipPath: "polygon(0% 0%, 100% 0%, 100% 32.9%, 0% 52.4%)",
+  clipPath: "polygon(0% 0%, 100% 0%, 100% 44%, 0% 54%)",
 
   // DEBUG: visible overlay (shows the actual tappable shape)
   backgroundColor: "rgba(0, 255, 0, 0.25)",
@@ -220,7 +220,7 @@ noZone: {
   position: "absolute",
   inset: 0,
   // red region below diagonal (with a little margin away from the white stripe)
-  clipPath: "polygon(0% 54.9%, 100% 35.4%, 100% 100%, 0% 100%)",
+  clipPath: "polygon(0% 56%, 100% 46%, 100% 100%, 0% 100%)",
 
   // DEBUG: visible overlay
   backgroundColor: "rgba(255, 0, 0, 0.25)",
@@ -230,8 +230,8 @@ noZone: {
 mainZone: {
   position: "absolute",
   // Center this over the blue button; tweak these while you can see the border
-  top: "44%",
-  left: "50%",
+  top: "41%",
+  left: "72%",
   transform: "translate(-50%, -50%)",
 
   width: "28%",
