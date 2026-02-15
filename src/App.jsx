@@ -208,33 +208,38 @@ const styles = {
   yesZone: {
   position: "absolute",
   inset: 0,
-  clipPath: "polygon(0 0, 100% 0, 0 55%)",
-  borderRadius: "50%",
-  border: "2px solid green",
-},
+  // green region above diagonal (with a little margin away from the white stripe)
+  clipPath: "polygon(0% 0%, 100% 0%, 100% 32.9%, 0% 52.4%)",
 
-mainZone: {
-  position: "absolute",
-  top: "41%",
-  left: "71%",
-  transform: "translateX(-50%)",
-  width: "38%",
-  aspectRatio: "1 / 1",
-  borderRadius: "50%",
-  backgroundColor: "rgba(0,0,255,0.3)",
-  border: "2px solid blue",
+  // DEBUG: visible overlay (shows the actual tappable shape)
+  backgroundColor: "rgba(0, 255, 0, 0.25)",
+  outline: "2px solid rgba(0, 255, 0, 0.9)",
 },
 
 noZone: {
   position: "absolute",
-  bottom: "2%",
-  left: "50%",
-  transform: "translateX(-50%)",
-  width: "85%",
-  aspectRatio: "1 / 1",
-  borderRadius: "50%",
-  backgroundColor: "rgba(255,0,0,0.3)",
-  border: "2px solid blue",
+  inset: 0,
+  // red region below diagonal (with a little margin away from the white stripe)
+  clipPath: "polygon(0% 54.9%, 100% 35.4%, 100% 100%, 0% 100%)",
+
+  // DEBUG: visible overlay
+  backgroundColor: "rgba(255, 0, 0, 0.25)",
+  outline: "2px solid rgba(255, 0, 0, 0.9)",
 },
 
+mainZone: {
+  position: "absolute",
+  // Center this over the blue button; tweak these while you can see the border
+  top: "44%",
+  left: "50%",
+  transform: "translate(-50%, -50%)",
+
+  width: "28%",
+  aspectRatio: "1 / 1",
+  borderRadius: "50%",
+
+  // DEBUG: visible circle
+  backgroundColor: "rgba(0, 0, 255, 0.25)",
+  border: "2px solid rgba(0, 0, 255, 0.9)",
+},
 };
