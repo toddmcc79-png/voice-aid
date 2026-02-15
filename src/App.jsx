@@ -220,7 +220,7 @@ noZone: {
   position: "absolute",
   inset: 0,
   // red region below diagonal (with a little margin away from the white stripe)
-  clipPath: "polygon(0% 56%, 100% 46%, 100% 100%, 0% 100%)",
+  clipPath: "polygon(0% 58%, 100% 48%, 100% 100%, 0% 100%)",
 
   // DEBUG: visible overlay
   backgroundColor: "rgba(255, 0, 0, 0.25)",
@@ -230,11 +230,11 @@ noZone: {
 mainZone: {
   position: "absolute",
   // Center this over the blue button; tweak these while you can see the border
-  top: "41%",
-  left: "72%",
+  top: "50%",
+  left: "71%",
   transform: "translate(-50%, -50%)",
 
-  width: "28%",
+  width: "30%",
   aspectRatio: "1 / 1",
   borderRadius: "50%",
 
