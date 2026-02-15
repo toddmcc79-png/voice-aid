@@ -207,11 +207,8 @@ const styles = {
 
   yesZone: {
   position: "absolute",
-  top: "2%",
-  left: "50%",
-  transform: "translateX(-50%)",
-  width: "85%",
-  aspectRatio: "1 / 1",
+  inset: 0,
+  clipPath: "polygon(0 0, 100% 0, 0 55%)",
   borderRadius: "50%",
   backgroundColor: "rgba(0,255,0,0.3)",
   border: "2px solid green",
@@ -222,7 +219,7 @@ mainZone: {
   top: "41%",
   left: "71%",
   transform: "translateX(-50%)",
-  width: "40%",
+  width: "38%",
   aspectRatio: "1 / 1",
   borderRadius: "50%",
   backgroundColor: "rgba(0,0,255,0.3)",
