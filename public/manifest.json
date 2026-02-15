@@ -1,6 +1,6 @@
 {
-  "name": "Voice Aid",
-  "short_name": "VoiceAid",
+  "name": "Yes/No",
+  "short_name": "Yes/No",
   "start_url": ".",
   "display": "standalone",
   "orientation": "portrait",
