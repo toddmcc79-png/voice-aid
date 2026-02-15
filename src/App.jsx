@@ -207,10 +207,10 @@ const styles = {
 
   yesZone: {
   position: "absolute",
-  top: "5%",
+  top: "2%",
   left: "50%",
   transform: "translateX(-50%)",
-  width: "90%",
+  width: "85%",
   aspectRatio: "1 / 1",
   borderRadius: "50%",
   backgroundColor: "rgba(0,255,0,0.3)",
@@ -219,7 +219,7 @@ const styles = {
 
 mainZone: {
   position: "absolute",
-  top: "45%",
+  top: "40%",
   left: "71%",
   transform: "translateX(-50%)",
   width: "40%",
@@ -231,10 +231,10 @@ mainZone: {
 
 noZone: {
   position: "absolute",
-  bottom: "5%",
+  bottom: "2%",
   left: "50%",
   transform: "translateX(-50%)",
-  width: "90%",
+  width: "85%",
   aspectRatio: "1 / 1",
   borderRadius: "50%",
   backgroundColor: "rgba(255,0,0,0.3)",
