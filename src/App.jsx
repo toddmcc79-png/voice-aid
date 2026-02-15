@@ -14,15 +14,51 @@ export default function App() {
   const yesRef = useRef(null);
   const noRef = useRef(null);
 
-  useEffect(() => {
-    return () => {
-      if (audioUrl) URL.revokeObjectURL(audioUrl);
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(t => t.stop());
+  /* -----------------------
+     IndexedDB Setup
+  ------------------------ */
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open("voiceAidDB", 1);
+
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+        db.createObjectStore("recordings");
+      };
+
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject("DB failed");
+    });
+  }
+
+  async function saveRecording(blob) {
+    const db = await openDB();
+    const tx = db.transaction("recordings", "readwrite");
+    const store = tx.objectStore("recordings");
+    store.put(blob, "latest");
+  }
+
+  async function loadRecording() {
+    const db = await openDB();
+    const tx = db.transaction("recordings", "readonly");
+    const store = tx.objectStore("recordings");
+    const request = store.get("latest");
+
+    request.onsuccess = () => {
+      if (request.result) {
+        const url = URL.createObjectURL(request.result);
+        setAudioUrl(url);
       }
     };
-  }, [audioUrl]);
+  }
 
+  useEffect(() => {
+    loadRecording();
+  }, []);
+
+  /* -----------------------
+     Beep + Vibration
+  ------------------------ */
   function feedbackStartRecording() {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const osc = ctx.createOscillator();
@@ -42,6 +78,9 @@ export default function App() {
     }
   }
 
+  /* -----------------------
+     Recording
+  ------------------------ */
   async function startRecording() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -55,10 +94,11 @@ export default function App() {
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
 
-      recorder.onstop = () => {
+      recorder.onstop = async () => {
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
         const url = URL.createObjectURL(blob);
         setAudioUrl(url);
+        await saveRecording(blob);
         stream.getTracks().forEach(t => t.stop());
       };
 
@@ -118,72 +158,42 @@ export default function App() {
   }
 
   return (
-    <div style={styles.container}>
-      {/* YES invisible zone */}
-      <div style={styles.yesZone} onClick={playYes} />
+    <div style={styles.wrapper}>
+      <div style={styles.container}>
+        <div style={styles.yesZone} onClick={playYes} />
+        <div
+          style={styles.mainZone}
+          onTouchStart={handlePressStart}
+          onTouchEnd={handlePressEnd}
+          onMouseDown={handlePressStart}
+          onMouseUp={handlePressEnd}
+        />
+        <div style={styles.noZone} onClick={playNo} />
 
-      {/* MAIN invisible zone */}
-      <div
-        style={styles.mainZone}
-        onTouchStart={handlePressStart}
-        onTouchEnd={handlePressEnd}
-        onMouseDown={handlePressStart}
-        onMouseUp={handlePressEnd}
-      />
-
-      {/* NO invisible zone */}
-      <div style={styles.noZone} onClick={playNo} />
-
-      <audio ref={playbackRef} src={audioUrl} />
-      <audio ref={yesRef} src="/yes.mp3" preload="auto" />
-      <audio ref={noRef} src="/no.mp3" preload="auto" />
+        <audio ref={playbackRef} src={audioUrl} />
+        <audio ref={yesRef} src="/yes.mp3" preload="auto" />
+        <audio ref={noRef} src="/no.mp3" preload="auto" />
+      </div>
     </div>
   );
 }
 
 const styles = {
+  wrapper: {
+    height: "100vh",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#000"
+  },
   container: {
-  position: "relative",
-  width: "390px",         // iPhone width
-  height: "844px",        // iPhone height
-  maxWidth: "100vw",
-  maxHeight: "100vh",
-  margin: "0 auto",
-  backgroundImage: "url('/background.png')",
-  backgroundSize: "contain",
-  backgroundPosition: "center",
-  backgroundRepeat: "no-repeat",
-},
-
-
+    position: "relative",
+    width: "390px",
+    height: "844px",
+    backgroundImage: "url('/background.png')",
+    backgroundSize: "contain",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat"
+  },
   yesZone: {
     position: "absolute",
-    top: "8%",
-    left: "50%",
-    transform: "translateX(-50%)",
-    width: "260px",
-    height: "260px",
-    borderRadius: "50%",
-  },
-
-  mainZone: {
-  position: "absolute",
-  top: "30%",
-  left: "71%",
-  transform: "translateX(-50%)",
-  width: "260px",
-  height: "260px",
-  borderRadius: "50%",
-},
-
-
-  noZone: {
-    position: "absolute",
-    bottom: "6%",
-    left: "50%",
-    transform: "translateX(-50%)",
-    width: "260px",
-    height: "260px",
-    borderRadius: "50%",
-  },
-};
