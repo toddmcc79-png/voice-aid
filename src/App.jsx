@@ -210,7 +210,6 @@ const styles = {
   inset: 0,
   clipPath: "polygon(0 0, 100% 0, 0 55%)",
   borderRadius: "50%",
-  backgroundColor: "rgba(0,255,0,0.3)",
   border: "2px solid green",
 },
 
