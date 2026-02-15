@@ -219,7 +219,7 @@ const styles = {
 
 mainZone: {
   position: "absolute",
-  top: "40%",
+  top: "41%",
   left: "71%",
   transform: "translateX(-50%)",
   width: "40%",
