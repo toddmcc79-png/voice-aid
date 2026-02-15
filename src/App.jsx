@@ -23,7 +23,9 @@ export default function App() {
 
       request.onupgradeneeded = (event) => {
         const db = event.target.result;
-        db.createObjectStore("recordings");
+        if (!db.objectStoreNames.contains("recordings")) {
+          db.createObjectStore("recordings");
+        }
       };
 
       request.onsuccess = () => resolve(request.result);
@@ -57,7 +59,7 @@ export default function App() {
   }, []);
 
   /* -----------------------
-     Beep + Vibration
+     Feedback
   ------------------------ */
   function feedbackStartRecording() {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -90,7 +92,7 @@ export default function App() {
       const recorder = new MediaRecorder(stream);
       mediaRecorderRef.current = recorder;
 
-      recorder.ondataavailable = e => {
+      recorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
 
@@ -99,7 +101,7 @@ export default function App() {
         const url = URL.createObjectURL(blob);
         setAudioUrl(url);
         await saveRecording(blob);
-        stream.getTracks().forEach(t => t.stop());
+        stream.getTracks().forEach((t) => t.stop());
       };
 
       recorder.start();
@@ -184,7 +186,7 @@ const styles = {
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#000"
+    backgroundColor: "#000",
   },
   container: {
     position: "relative",
@@ -193,7 +195,33 @@ const styles = {
     backgroundImage: "url('/background.png')",
     backgroundSize: "contain",
     backgroundPosition: "center",
-    backgroundRepeat: "no-repeat"
+    backgroundRepeat: "no-repeat",
   },
   yesZone: {
     position: "absolute",
+    top: "8%",
+    left: "50%",
+    transform: "translateX(-50%)",
+    width: "260px",
+    height: "260px",
+    borderRadius: "50%",
+  },
+  mainZone: {
+    position: "absolute",
+    top: "38%",
+    left: "50%",
+    transform: "translateX(-50%)",
+    width: "260px",
+    height: "260px",
+    borderRadius: "50%",
+  },
+  noZone: {
+    position: "absolute",
+    bottom: "6%",
+    left: "50%",
+    transform: "translateX(-50%)",
+    width: "260px",
+    height: "260px",
+    borderRadius: "50%",
+  },
+};
