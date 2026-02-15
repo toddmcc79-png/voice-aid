@@ -208,38 +208,25 @@ const styles = {
   yesZone: {
   position: "absolute",
   inset: 0,
-  // green region above diagonal (with a little margin away from the white stripe)
   clipPath: "polygon(0% 0%, 100% 0%, 100% 44%, 0% 54%)",
-
-  // DEBUG: visible overlay (shows the actual tappable shape)
-  backgroundColor: "rgba(0, 255, 0, 0.25)",
-  outline: "2px solid rgba(0, 255, 0, 0.9)",
+  zIndex: 1,
 },
 
 noZone: {
   position: "absolute",
   inset: 0,
-  // red region below diagonal (with a little margin away from the white stripe)
   clipPath: "polygon(0% 58%, 100% 48%, 100% 100%, 0% 100%)",
-
-  // DEBUG: visible overlay
-  backgroundColor: "rgba(255, 0, 0, 0.25)",
-  outline: "2px solid rgba(255, 0, 0, 0.9)",
+  zIndex: 1,
 },
 
 mainZone: {
   position: "absolute",
-  // Center this over the blue button; tweak these while you can see the border
   top: "50%",
   left: "71%",
   transform: "translate(-50%, -50%)",
-
   width: "30%",
   aspectRatio: "1 / 1",
   borderRadius: "50%",
-
-  // DEBUG: visible circle
-  backgroundColor: "rgba(0, 0, 255, 0.25)",
-  border: "2px solid rgba(0, 0, 255, 0.9)",
+  zIndex: 2,  // ensures blue button is always on top
 },
 };
