@@ -41,18 +41,22 @@ export default function App() {
   }
 
   async function loadRecording() {
-    const db = await openDB();
-    const tx = db.transaction("recordings", "readonly");
-    const store = tx.objectStore("recordings");
-    const request = store.get("latest");
+  const db = await openDB();
+  const tx = db.transaction("recordings", "readonly");
+  const store = tx.objectStore("recordings");
+  const request = store.get("latest");
 
-    request.onsuccess = () => {
-      if (request.result) {
-        const url = URL.createObjectURL(request.result);
-        setAudioUrl(url);
-      }
-    };
-  }
+  request.onsuccess = () => {
+    if (request.result) {
+      const url = URL.createObjectURL(request.result);
+      setAudioUrl(url);
+    } else {
+      // No saved recording — use default message
+      setAudioUrl("/default.mp3");
+    }
+  };
+}
+
 
   useEffect(() => {
     loadRecording();
