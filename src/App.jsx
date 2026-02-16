@@ -9,7 +9,7 @@ export default function App() {
   const streamRef = useRef(null);
   const chunksRef = useRef([]);
   const isHoldingRef = useRef(false);
-
+  const recordingStartRef = useRef(null);
   const playbackRef = useRef(null);
   const yesRef = useRef(null);
   const noRef = useRef(null);
@@ -110,35 +110,53 @@ export default function App() {
   }
 
   function startRecordingFromStream() {
-    if (!streamRef.current) return;
+  if (!streamRef.current) return;
 
-    chunksRef.current = [];
+  chunksRef.current = [];
 
-    const recorder = new MediaRecorder(streamRef.current);
-    mediaRecorderRef.current = recorder;
+  const recorder = new MediaRecorder(streamRef.current);
+  mediaRecorderRef.current = recorder;
 
-    recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) chunksRef.current.push(e.data);
-    };
+  recorder.ondataavailable = (e) => {
+    if (e.data.size > 0) chunksRef.current.push(e.data);
+  };
 
-    recorder.onstop = async () => {
-      const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-      const url = URL.createObjectURL(blob);
-      setAudioUrl(url);
-      await saveRecording(blob);
-    };
+  recorder.onstop = async () => {
+    if (chunksRef.current.length === 0) {
+      console.log("No audio captured.");
+      return;
+    }
 
-    recorder.start();
-    setStatus("recording");
-    feedbackStartRecording();
-  }
+    const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+    const url = URL.createObjectURL(blob);
+    setAudioUrl(url);
+    await saveRecording(blob);
+  };
+
+  recorder.start();
+  recordingStartRef.current = Date.now();   // 👈 mark start time
+  setStatus("recording");
+  feedbackStartRecording();
+}
+
 
   function stopRecording() {
-    if (mediaRecorderRef.current?.state === "recording") {
+  if (!mediaRecorderRef.current) return;
+
+  const elapsed = Date.now() - recordingStartRef.current;
+
+  // Ensure minimum 500ms recording time
+  if (elapsed < 500) {
+    setTimeout(() => {
       mediaRecorderRef.current.stop();
-    }
-    setStatus("idle");
+    }, 500 - elapsed);
+  } else {
+    mediaRecorderRef.current.stop();
   }
+
+  setStatus("idle");
+}
+
 
   function handlePressEnd() {
     isHoldingRef.current = false;
