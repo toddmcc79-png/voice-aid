@@ -41,22 +41,20 @@ export default function App() {
   }
 
   async function loadRecording() {
-  const db = await openDB();
-  const tx = db.transaction("recordings", "readonly");
-  const store = tx.objectStore("recordings");
-  const request = store.get("latest");
+    const db = await openDB();
+    const tx = db.transaction("recordings", "readonly");
+    const store = tx.objectStore("recordings");
+    const request = store.get("latest");
 
-  request.onsuccess = () => {
-    if (request.result) {
-      const url = URL.createObjectURL(request.result);
-      setAudioUrl(url);
-    } else {
-      // No saved recording — use default message
-      setAudioUrl("/default.mp3");
-    }
-  };
-}
-
+    request.onsuccess = () => {
+      if (request.result) {
+        const url = URL.createObjectURL(request.result);
+        setAudioUrl(url);
+      } else {
+        setAudioUrl("/default.mp3");
+      }
+    };
+  }
 
   useEffect(() => {
     loadRecording();
@@ -85,36 +83,54 @@ export default function App() {
   }
 
   /* -----------------------
-     Recording
+     iOS-Safe Recording Flow
   ------------------------ */
-  async function startRecording() {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-      chunksRef.current = [];
 
-      const recorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = recorder;
+  async function handlePressStart() {
+    isHoldingRef.current = true;
+    setStatus("arming");
 
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-
-      recorder.onstop = async () => {
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        const url = URL.createObjectURL(blob);
-        setAudioUrl(url);
-        await saveRecording(blob);
-        stream.getTracks().forEach((t) => t.stop());
-      };
-
-      recorder.start();
-      setStatus("recording");
-      feedbackStartRecording();
-    } catch {
-      alert("Microphone permission required.");
-      setStatus("idle");
+    // 🔹 Immediately request mic permission on touch
+    if (!streamRef.current) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamRef.current = stream;
+      } catch {
+        alert("Microphone permission required.");
+        return;
+      }
     }
+
+    // 🔹 Only start actual recording after 5 seconds
+    holdTimerRef.current = setTimeout(() => {
+      if (isHoldingRef.current) {
+        startRecordingFromStream();
+      }
+    }, 5000);
+  }
+
+  function startRecordingFromStream() {
+    if (!streamRef.current) return;
+
+    chunksRef.current = [];
+
+    const recorder = new MediaRecorder(streamRef.current);
+    mediaRecorderRef.current = recorder;
+
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunksRef.current.push(e.data);
+    };
+
+    recorder.onstop = async () => {
+      const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+      const url = URL.createObjectURL(blob);
+      setAudioUrl(url);
+      await saveRecording(blob);
+    };
+
+    recorder.start();
+    setStatus("recording");
+    feedbackStartRecording();
   }
 
   function stopRecording() {
@@ -122,23 +138,6 @@ export default function App() {
       mediaRecorderRef.current.stop();
     }
     setStatus("idle");
-  }
-
-  function playRecording() {
-    if (!audioUrl) return;
-    playbackRef.current.currentTime = 0;
-    playbackRef.current.play();
-  }
-
-  function handlePressStart() {
-    isHoldingRef.current = true;
-    setStatus("arming");
-
-    holdTimerRef.current = setTimeout(() => {
-      if (isHoldingRef.current) {
-        startRecording();
-      }
-    }, 5000);
   }
 
   function handlePressEnd() {
@@ -151,6 +150,12 @@ export default function App() {
     } else if (status === "recording") {
       stopRecording();
     }
+  }
+
+  function playRecording() {
+    if (!audioUrl) return;
+    playbackRef.current.currentTime = 0;
+    playbackRef.current.play();
   }
 
   function playYes() {
@@ -167,19 +172,15 @@ export default function App() {
     <div style={styles.wrapper}>
       <div style={styles.container}>
         <div style={styles.yesZone} onClick={playYes} />
+
         <div
-  style={styles.mainZone}
-  onTouchStart={(e) => {
-    e.preventDefault();
-    handlePressStart();
-  }}
-  onTouchEnd={(e) => {
-    e.preventDefault();
-    handlePressEnd();
-  }}
+          style={styles.mainZone}
+          onTouchStart={handlePressStart}
+          onTouchEnd={handlePressEnd}
           onMouseDown={handlePressStart}
           onMouseUp={handlePressEnd}
         />
+
         <div style={styles.noZone} onClick={playNo} />
 
         <audio ref={playbackRef} src={audioUrl} />
@@ -202,8 +203,8 @@ const styles = {
 
   container: {
     position: "relative",
-    aspectRatio: "390 / 844",  // keeps iPhone shape
-    height: "95vh",            // scales to screen height
+    aspectRatio: "390 / 844",
+    height: "95vh",
     maxWidth: "100%",
     backgroundImage: "url('/background.png')",
     backgroundSize: "contain",
@@ -212,27 +213,28 @@ const styles = {
   },
 
   yesZone: {
-  position: "absolute",
-  inset: 0,
-  clipPath: "polygon(0% 0%, 100% 0%, 100% 44%, 0% 54%)",
-  zIndex: 1,
-},
+    position: "absolute",
+    inset: 0,
+    clipPath: "polygon(0% 0%, 100% 0%, 100% 44%, 0% 54%)",
+    zIndex: 1,
+  },
 
-noZone: {
-  position: "absolute",
-  inset: 0,
-  clipPath: "polygon(0% 58%, 100% 48%, 100% 100%, 0% 100%)",
-  zIndex: 1,
-},
+  noZone: {
+    position: "absolute",
+    inset: 0,
+    clipPath: "polygon(0% 58%, 100% 48%, 100% 100%, 0% 100%)",
+    zIndex: 1,
+  },
 
-mainZone: {
-  position: "absolute",
-  top: "50%",
-  left: "71%",
-  transform: "translate(-50%, -50%)",
-  width: "30%",
-  aspectRatio: "1 / 1",
-  borderRadius: "50%",
-  zIndex: 2,  // ensures blue button is always on top
-},
+  mainZone: {
+    position: "absolute",
+    top: "50%",
+    left: "71%",
+    transform: "translate(-50%, -50%)",
+    width: "30%",
+    aspectRatio: "1 / 1",
+    borderRadius: "50%",
+    zIndex: 2,
+  },
 };
+
