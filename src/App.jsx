@@ -168,9 +168,15 @@ export default function App() {
       <div style={styles.container}>
         <div style={styles.yesZone} onClick={playYes} />
         <div
-          style={styles.mainZone}
-          onTouchStart={handlePressStart}
-          onTouchEnd={handlePressEnd}
+  style={styles.mainZone}
+  onTouchStart={(e) => {
+    e.preventDefault();
+    handlePressStart();
+  }}
+  onTouchEnd={(e) => {
+    e.preventDefault();
+    handlePressEnd();
+  }}
           onMouseDown={handlePressStart}
           onMouseUp={handlePressEnd}
         />
