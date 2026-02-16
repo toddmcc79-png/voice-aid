@@ -3,13 +3,14 @@ import React, { useRef, useState, useEffect } from "react";
 export default function App() {
   const [status, setStatus] = useState("idle");
   const [audioUrl, setAudioUrl] = useState(null);
+  const [hasPermission, setHasPermission] = useState(false);
 
   const holdTimerRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const streamRef = useRef(null);
   const chunksRef = useRef([]);
   const isHoldingRef = useRef(false);
-  const recordingStartRef = useRef(null);
+
   const playbackRef = useRef(null);
   const yesRef = useRef(null);
   const noRef = useRef(null);
@@ -58,6 +59,13 @@ export default function App() {
 
   useEffect(() => {
     loadRecording();
+
+    // Clean up mic when app fully closes
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+      }
+    };
   }, []);
 
   /* -----------------------
@@ -83,80 +91,38 @@ export default function App() {
   }
 
   /* -----------------------
-     iOS-Safe Recording Flow
+     Permission (only once)
   ------------------------ */
+  async function requestPermission() {
+    if (hasPermission) return;
 
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      setHasPermission(true);
+    } catch {
+      alert("Microphone permission required.");
+    }
+  }
+
+  /* -----------------------
+     Hold Logic
+  ------------------------ */
   async function handlePressStart() {
+    if (!hasPermission) {
+      await requestPermission();
+      return; // first interaction only grants permission
+    }
+
     isHoldingRef.current = true;
     setStatus("arming");
 
-    // 🔹 Immediately request mic permission on touch
-    if (!streamRef.current) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        streamRef.current = stream;
-      } catch {
-        alert("Microphone permission required.");
-        return;
-      }
-    }
-
-    // 🔹 Only start actual recording after 5 seconds
     holdTimerRef.current = setTimeout(() => {
       if (isHoldingRef.current) {
-        startRecordingFromStream();
+        startRecording();
       }
     }, 5000);
   }
-
-  function startRecordingFromStream() {
-  if (!streamRef.current) return;
-
-  chunksRef.current = [];
-
-  const recorder = new MediaRecorder(streamRef.current);
-  mediaRecorderRef.current = recorder;
-
-  recorder.ondataavailable = (e) => {
-    if (e.data.size > 0) chunksRef.current.push(e.data);
-  };
-
-  recorder.onstop = async () => {
-    if (chunksRef.current.length === 0) {
-      console.log("No audio captured.");
-      return;
-    }
-
-    const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-    const url = URL.createObjectURL(blob);
-    setAudioUrl(url);
-    await saveRecording(blob);
-  };
-
-  recorder.start();
-  recordingStartRef.current = Date.now();   // 👈 mark start time
-  setStatus("recording");
-  feedbackStartRecording();
-}
-
-
-  function stopRecording() {
-  if (!mediaRecorderRef.current) return;
-
-  const elapsed = Date.now() - recordingStartRef.current;
-
-  // Ensure minimum 500ms recording time
-  if (elapsed < 500) {
-    setTimeout(() => {
-      mediaRecorderRef.current.stop();
-    }, 500 - elapsed);
-  } else {
-    mediaRecorderRef.current.stop();
-  }
-
-  setStatus("idle");
-}
-
 
   function handlePressEnd() {
     isHoldingRef.current = false;
@@ -168,6 +134,42 @@ export default function App() {
     } else if (status === "recording") {
       stopRecording();
     }
+  }
+
+  /* -----------------------
+     Recording
+  ------------------------ */
+  function startRecording() {
+    if (!streamRef.current) return;
+
+    chunksRef.current = [];
+
+    const recorder = new MediaRecorder(streamRef.current);
+    mediaRecorderRef.current = recorder;
+
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunksRef.current.push(e.data);
+    };
+
+    recorder.onstop = async () => {
+      if (chunksRef.current.length === 0) return;
+
+      const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+      const url = URL.createObjectURL(blob);
+      setAudioUrl(url);
+      await saveRecording(blob);
+    };
+
+    recorder.start();
+    setStatus("recording");
+    feedbackStartRecording();
+  }
+
+  function stopRecording() {
+    if (mediaRecorderRef.current?.state === "recording") {
+      mediaRecorderRef.current.stop();
+    }
+    setStatus("idle");
   }
 
   function playRecording() {
@@ -255,4 +257,3 @@ const styles = {
     zIndex: 2,
   },
 };
-
