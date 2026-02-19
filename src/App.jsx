@@ -3,17 +3,22 @@ import React, { useRef, useState, useEffect } from "react";
 export default function App() {
   const [status, setStatus] = useState("idle");
   const [audioUrl, setAudioUrl] = useState(null);
-  const [micReady, setMicReady] = useState(false);
 
   const holdTimerRef = useRef(null);
-  const mediaRecorderRef = useRef(null);
   const streamRef = useRef(null);
-  const chunksRef = useRef([]);
   const isHoldingRef = useRef(false);
 
   const playbackRef = useRef(null);
   const yesRef = useRef(null);
   const noRef = useRef(null);
+
+  /* -----------------------
+     Web Audio Refs
+  ------------------------ */
+  const audioContextRef = useRef(null);
+  const processorRef = useRef(null);
+  const audioDataRef = useRef([]);
+  const sampleRateRef = useRef(44100);
 
   /* -----------------------
      IndexedDB Setup
@@ -64,10 +69,8 @@ export default function App() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach((t) => t.stop());
-      setMicReady(true);
     } catch {
       alert("Microphone permission is required.");
-      setMicReady(false);
     }
   }
 
@@ -99,54 +102,41 @@ export default function App() {
   }
 
   /* -----------------------
-     Recording (Stable iOS)
+     Web Audio Recorder (WAV)
   ------------------------ */
-  async function startRecording() {
-    if (!micReady) {
-      alert("Microphone not ready.");
-      return;
-    }
 
+  async function startRecording() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
-      chunksRef.current = [];
 
-      let options = {};
+      const AudioContextClass =
+        window.AudioContext || window.webkitAudioContext;
+      const audioContext = new AudioContextClass();
+      audioContextRef.current = audioContext;
 
-      if (MediaRecorder.isTypeSupported("audio/mp4")) {
-        options.mimeType = "audio/mp4";
-      } else if (MediaRecorder.isTypeSupported("audio/webm")) {
-        options.mimeType = "audio/webm";
+      // 🔥 Critical for iOS
+      if (audioContext.state === "suspended") {
+        await audioContext.resume();
       }
 
-      const recorder = new MediaRecorder(stream, options);
-      mediaRecorderRef.current = recorder;
+      sampleRateRef.current = audioContext.sampleRate;
 
-      recorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) {
-          chunksRef.current.push(e.data);
-        }
+      const source = audioContext.createMediaStreamSource(stream);
+
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      processorRef.current = processor;
+
+      audioDataRef.current = [];
+
+      processor.onaudioprocess = (event) => {
+        const channelData = event.inputBuffer.getChannelData(0);
+        audioDataRef.current.push(new Float32Array(channelData));
       };
 
-      recorder.onstop = async () => {
-        if (chunksRef.current.length === 0) {
-          console.log("No audio captured.");
-          return;
-        }
+      source.connect(processor);
+      processor.connect(audioContext.destination);
 
-        const blob = new Blob(chunksRef.current, {
-          type: recorder.mimeType,
-        });
-
-        const url = URL.createObjectURL(blob);
-        setAudioUrl(url);
-        await saveRecording(blob);
-
-        stream.getTracks().forEach((t) => t.stop());
-      };
-
-      recorder.start(100); // Safari reliability
       setStatus("recording");
       feedbackStartRecording();
     } catch (err) {
@@ -157,10 +147,78 @@ export default function App() {
   }
 
   function stopRecording() {
-    if (mediaRecorderRef.current?.state === "recording") {
-      mediaRecorderRef.current.stop();
+    const audioContext = audioContextRef.current;
+    const processor = processorRef.current;
+    const stream = streamRef.current;
+
+    if (!audioContext || !processor || !stream) {
+      setStatus("idle");
+      return;
     }
+
+    processor.disconnect();
+    audioContext.close();
+    stream.getTracks().forEach((t) => t.stop());
+
+    const mergedBuffer = mergeBuffers(audioDataRef.current);
+    const wavBlob = encodeWAV(mergedBuffer, sampleRateRef.current);
+
+    const url = URL.createObjectURL(wavBlob);
+    setAudioUrl(url);
+    saveRecording(wavBlob);
+
     setStatus("idle");
+  }
+
+  function mergeBuffers(buffers) {
+    let length = 0;
+    buffers.forEach((b) => (length += b.length));
+
+    const result = new Float32Array(length);
+    let offset = 0;
+
+    buffers.forEach((buffer) => {
+      result.set(buffer, offset);
+      offset += buffer.length;
+    });
+
+    return result;
+  }
+
+  function encodeWAV(samples, sampleRate) {
+    const buffer = new ArrayBuffer(44 + samples.length * 2);
+    const view = new DataView(buffer);
+
+    writeString(view, 0, "RIFF");
+    view.setUint32(4, 36 + samples.length * 2, true);
+    writeString(view, 8, "WAVE");
+    writeString(view, 12, "fmt ");
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeString(view, 36, "data");
+    view.setUint32(40, samples.length * 2, true);
+
+    floatTo16BitPCM(view, 44, samples);
+
+    return new Blob([view], { type: "audio/wav" });
+  }
+
+  function floatTo16BitPCM(view, offset, input) {
+    for (let i = 0; i < input.length; i++, offset += 2) {
+      let s = Math.max(-1, Math.min(1, input[i]));
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+    }
+  }
+
+  function writeString(view, offset, string) {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
   }
 
   function playRecording() {
@@ -172,6 +230,7 @@ export default function App() {
   /* -----------------------
      Press Logic
   ------------------------ */
+
   function handlePressStart() {
     isHoldingRef.current = true;
     setStatus("arming");
@@ -245,7 +304,6 @@ const styles = {
     alignItems: "center",
     backgroundColor: "#000",
   },
-
   container: {
     position: "relative",
     aspectRatio: "390 / 844",
@@ -256,21 +314,18 @@ const styles = {
     backgroundPosition: "center",
     backgroundRepeat: "no-repeat",
   },
-
   yesZone: {
     position: "absolute",
     inset: 0,
     clipPath: "polygon(0% 0%, 100% 0%, 100% 44%, 0% 54%)",
     zIndex: 1,
   },
-
   noZone: {
     position: "absolute",
     inset: 0,
     clipPath: "polygon(0% 58%, 100% 48%, 100% 100%, 0% 100%)",
     zIndex: 1,
   },
-
   mainZone: {
     position: "absolute",
     top: "50%",
