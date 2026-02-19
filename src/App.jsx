@@ -83,7 +83,7 @@ export default function App() {
   }
 
   /* -----------------------
-     Recording
+     Recording (iOS Safe)
   ------------------------ */
   async function startRecording() {
     try {
@@ -91,25 +91,44 @@ export default function App() {
       streamRef.current = stream;
       chunksRef.current = [];
 
-      const recorder = new MediaRecorder(stream);
+      let options = {};
+
+      if (window.MediaRecorder) {
+        if (MediaRecorder.isTypeSupported("audio/mp4")) {
+          options.mimeType = "audio/mp4";
+        } else if (MediaRecorder.isTypeSupported("audio/webm")) {
+          options.mimeType = "audio/webm";
+        }
+      }
+
+      const recorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = recorder;
 
       recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
+        if (e.data && e.data.size > 0) {
+          chunksRef.current.push(e.data);
+        }
       };
 
       recorder.onstop = async () => {
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const blob = new Blob(chunksRef.current, {
+          type: recorder.mimeType,
+        });
+
         const url = URL.createObjectURL(blob);
         setAudioUrl(url);
         await saveRecording(blob);
+
         stream.getTracks().forEach((t) => t.stop());
       };
 
-      recorder.start();
+      // Safari reliability improvement
+      recorder.start(100);
+
       setStatus("recording");
       feedbackStartRecording();
-    } catch {
+    } catch (err) {
+      console.error(err);
       alert("Microphone permission required.");
       setStatus("idle");
     }
@@ -129,7 +148,7 @@ export default function App() {
   }
 
   /* -----------------------
-     Press Logic (Fixed)
+     Press Logic
   ------------------------ */
 
   function handlePressStart() {
@@ -140,7 +159,7 @@ export default function App() {
       if (isHoldingRef.current) {
         startRecording();
       }
-    }, 700); // changed from 5000ms to 700ms
+    }, 700);
   }
 
   function handlePressEnd() {
