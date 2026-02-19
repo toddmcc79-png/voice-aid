@@ -79,4 +79,7 @@ body {
   -webkit-touch-callout: none;
   margin: 0;
 }
+html, body {
+  touch-action: manipulation;
+}
 

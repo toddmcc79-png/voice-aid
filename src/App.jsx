@@ -3,7 +3,6 @@ import React, { useRef, useState, useEffect } from "react";
 export default function App() {
   const [status, setStatus] = useState("idle");
   const [audioUrl, setAudioUrl] = useState(null);
-  const [hasPermission, setHasPermission] = useState(false);
 
   const holdTimerRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -59,13 +58,6 @@ export default function App() {
 
   useEffect(() => {
     loadRecording();
-
-    // Clean up mic when app fully closes
-    return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((t) => t.stop());
-      }
-    };
   }, []);
 
   /* -----------------------
@@ -91,78 +83,36 @@ export default function App() {
   }
 
   /* -----------------------
-     Permission (only once)
+     Recording
   ------------------------ */
-  async function requestPermission() {
-    if (hasPermission) return;
-
+  async function startRecording() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
-      setHasPermission(true);
+      chunksRef.current = [];
+
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+
+      recorder.onstop = async () => {
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const url = URL.createObjectURL(blob);
+        setAudioUrl(url);
+        await saveRecording(blob);
+        stream.getTracks().forEach((t) => t.stop());
+      };
+
+      recorder.start();
+      setStatus("recording");
+      feedbackStartRecording();
     } catch {
       alert("Microphone permission required.");
-    }
-  }
-
-  /* -----------------------
-     Hold Logic
-  ------------------------ */
-  async function handlePressStart() {
-    if (!hasPermission) {
-      await requestPermission();
-      return; // first interaction only grants permission
-    }
-
-    isHoldingRef.current = true;
-    setStatus("arming");
-
-    holdTimerRef.current = setTimeout(() => {
-      if (isHoldingRef.current) {
-        startRecording();
-      }
-    }, 5000);
-  }
-
-  function handlePressEnd() {
-    isHoldingRef.current = false;
-    clearTimeout(holdTimerRef.current);
-
-    if (status === "arming") {
       setStatus("idle");
-      playRecording();
-    } else if (status === "recording") {
-      stopRecording();
     }
-  }
-
-  /* -----------------------
-     Recording
-  ------------------------ */
-  function startRecording() {
-    if (!streamRef.current) return;
-
-    chunksRef.current = [];
-
-    const recorder = new MediaRecorder(streamRef.current);
-    mediaRecorderRef.current = recorder;
-
-    recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) chunksRef.current.push(e.data);
-    };
-
-    recorder.onstop = async () => {
-      if (chunksRef.current.length === 0) return;
-
-      const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-      const url = URL.createObjectURL(blob);
-      setAudioUrl(url);
-      await saveRecording(blob);
-    };
-
-    recorder.start();
-    setStatus("recording");
-    feedbackStartRecording();
   }
 
   function stopRecording() {
@@ -176,6 +126,33 @@ export default function App() {
     if (!audioUrl) return;
     playbackRef.current.currentTime = 0;
     playbackRef.current.play();
+  }
+
+  /* -----------------------
+     Press Logic (Fixed)
+  ------------------------ */
+
+  function handlePressStart() {
+    isHoldingRef.current = true;
+    setStatus("arming");
+
+    holdTimerRef.current = setTimeout(() => {
+      if (isHoldingRef.current) {
+        startRecording();
+      }
+    }, 700); // changed from 5000ms to 700ms
+  }
+
+  function handlePressEnd() {
+    isHoldingRef.current = false;
+    clearTimeout(holdTimerRef.current);
+
+    if (status === "arming") {
+      setStatus("idle");
+      playRecording();
+    } else if (status === "recording") {
+      stopRecording();
+    }
   }
 
   function playYes() {
@@ -194,11 +171,19 @@ export default function App() {
         <div style={styles.yesZone} onClick={playYes} />
 
         <div
-          style={styles.mainZone}
-          onTouchStart={handlePressStart}
-          onTouchEnd={handlePressEnd}
-          onMouseDown={handlePressStart}
-          onMouseUp={handlePressEnd}
+          style={{
+            ...styles.mainZone,
+            backgroundColor:
+              status === "recording"
+                ? "rgba(255,0,0,0.4)"
+                : status === "arming"
+                ? "rgba(255,165,0,0.4)"
+                : "transparent",
+          }}
+          onPointerDown={handlePressStart}
+          onPointerUp={handlePressEnd}
+          onPointerCancel={handlePressEnd}
+          onContextMenu={(e) => e.preventDefault()}
         />
 
         <div style={styles.noZone} onClick={playNo} />
@@ -255,5 +240,10 @@ const styles = {
     aspectRatio: "1 / 1",
     borderRadius: "50%",
     zIndex: 2,
+
+    WebkitTouchCallout: "none",
+    WebkitUserSelect: "none",
+    userSelect: "none",
+    touchAction: "none",
   },
 };
