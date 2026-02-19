@@ -3,6 +3,7 @@ import React, { useRef, useState, useEffect } from "react";
 export default function App() {
   const [status, setStatus] = useState("idle");
   const [audioUrl, setAudioUrl] = useState(null);
+  const [micReady, setMicReady] = useState(false);
 
   const holdTimerRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -56,8 +57,23 @@ export default function App() {
     };
   }
 
+  /* -----------------------
+     Request Mic Permission Once
+  ------------------------ */
+  async function ensureMicPermission() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop());
+      setMicReady(true);
+    } catch {
+      alert("Microphone permission is required.");
+      setMicReady(false);
+    }
+  }
+
   useEffect(() => {
     loadRecording();
+    ensureMicPermission();
   }, []);
 
   /* -----------------------
@@ -83,9 +99,14 @@ export default function App() {
   }
 
   /* -----------------------
-     Recording (iOS Safe)
+     Recording (Stable iOS)
   ------------------------ */
   async function startRecording() {
+    if (!micReady) {
+      alert("Microphone not ready.");
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -93,12 +114,10 @@ export default function App() {
 
       let options = {};
 
-      if (window.MediaRecorder) {
-        if (MediaRecorder.isTypeSupported("audio/mp4")) {
-          options.mimeType = "audio/mp4";
-        } else if (MediaRecorder.isTypeSupported("audio/webm")) {
-          options.mimeType = "audio/webm";
-        }
+      if (MediaRecorder.isTypeSupported("audio/mp4")) {
+        options.mimeType = "audio/mp4";
+      } else if (MediaRecorder.isTypeSupported("audio/webm")) {
+        options.mimeType = "audio/webm";
       }
 
       const recorder = new MediaRecorder(stream, options);
@@ -111,6 +130,11 @@ export default function App() {
       };
 
       recorder.onstop = async () => {
+        if (chunksRef.current.length === 0) {
+          console.log("No audio captured.");
+          return;
+        }
+
         const blob = new Blob(chunksRef.current, {
           type: recorder.mimeType,
         });
@@ -122,14 +146,12 @@ export default function App() {
         stream.getTracks().forEach((t) => t.stop());
       };
 
-      // Safari reliability improvement
-      recorder.start(100);
-
+      recorder.start(100); // Safari reliability
       setStatus("recording");
       feedbackStartRecording();
     } catch (err) {
       console.error(err);
-      alert("Microphone permission required.");
+      alert("Recording failed.");
       setStatus("idle");
     }
   }
@@ -150,7 +172,6 @@ export default function App() {
   /* -----------------------
      Press Logic
   ------------------------ */
-
   function handlePressStart() {
     isHoldingRef.current = true;
     setStatus("arming");
@@ -259,7 +280,6 @@ const styles = {
     aspectRatio: "1 / 1",
     borderRadius: "50%",
     zIndex: 2,
-
     WebkitTouchCallout: "none",
     WebkitUserSelect: "none",
     userSelect: "none",
