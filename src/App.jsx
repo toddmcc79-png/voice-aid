@@ -63,7 +63,7 @@ export default function App() {
   }
 
   /* -----------------------
-     Request Mic Permission Once
+     Mic Permission Warmup
   ------------------------ */
   async function ensureMicPermission() {
     try {
@@ -77,6 +77,10 @@ export default function App() {
   useEffect(() => {
     loadRecording();
     ensureMicPermission();
+
+    // 🔥 Force preload yes/no audio
+    yesRef.current?.load();
+    noRef.current?.load();
   }, []);
 
   /* -----------------------
@@ -102,7 +106,7 @@ export default function App() {
   }
 
   /* -----------------------
-     Web Audio Recorder (WAV)
+     Web Audio Recorder
   ------------------------ */
 
   async function startRecording() {
@@ -115,7 +119,6 @@ export default function App() {
       const audioContext = new AudioContextClass();
       audioContextRef.current = audioContext;
 
-      // 🔥 Critical for iOS
       if (audioContext.state === "suspended") {
         await audioContext.resume();
       }
@@ -123,10 +126,9 @@ export default function App() {
       sampleRateRef.current = audioContext.sampleRate;
 
       const source = audioContext.createMediaStreamSource(stream);
-
       const processor = audioContext.createScriptProcessor(4096, 1, 1);
-      processorRef.current = processor;
 
+      processorRef.current = processor;
       audioDataRef.current = [];
 
       processor.onaudioprocess = (event) => {
@@ -204,7 +206,6 @@ export default function App() {
     view.setUint32(40, samples.length * 2, true);
 
     floatTo16BitPCM(view, 44, samples);
-
     return new Blob([view], { type: "audio/wav" });
   }
 
@@ -221,10 +222,32 @@ export default function App() {
     }
   }
 
+  /* -----------------------
+     Playback
+  ------------------------ */
+
   function playRecording() {
     if (!audioUrl) return;
-    playbackRef.current.currentTime = 0;
-    playbackRef.current.play();
+    const audio = playbackRef.current;
+    audio.pause();
+    audio.currentTime = 0;
+    audio.play();
+  }
+
+  function playYes() {
+    const audio = yesRef.current;
+    if (!audio) return;
+    audio.pause();
+    audio.currentTime = 0;
+    audio.play();
+  }
+
+  function playNo() {
+    const audio = noRef.current;
+    if (!audio) return;
+    audio.pause();
+    audio.currentTime = 0;
+    audio.play();
   }
 
   /* -----------------------
@@ -254,20 +277,14 @@ export default function App() {
     }
   }
 
-  function playYes() {
-    yesRef.current.currentTime = 0;
-    yesRef.current.play();
-  }
-
-  function playNo() {
-    noRef.current.currentTime = 0;
-    noRef.current.play();
-  }
-
   return (
     <div style={styles.wrapper}>
       <div style={styles.container}>
-        <div style={styles.yesZone} onClick={playYes} />
+        <div
+          style={styles.yesZone}
+          onPointerDown={playYes}
+          onContextMenu={(e) => e.preventDefault()}
+        />
 
         <div
           style={{
@@ -285,7 +302,11 @@ export default function App() {
           onContextMenu={(e) => e.preventDefault()}
         />
 
-        <div style={styles.noZone} onClick={playNo} />
+        <div
+          style={styles.noZone}
+          onPointerDown={playNo}
+          onContextMenu={(e) => e.preventDefault()}
+        />
 
         <audio ref={playbackRef} src={audioUrl} />
         <audio ref={yesRef} src="/yes.mp3" preload="auto" />
@@ -319,12 +340,20 @@ const styles = {
     inset: 0,
     clipPath: "polygon(0% 0%, 100% 0%, 100% 44%, 0% 54%)",
     zIndex: 1,
+    touchAction: "manipulation",
+    WebkitTouchCallout: "none",
+    WebkitUserSelect: "none",
+    userSelect: "none",
   },
   noZone: {
     position: "absolute",
     inset: 0,
     clipPath: "polygon(0% 58%, 100% 48%, 100% 100%, 0% 100%)",
     zIndex: 1,
+    touchAction: "manipulation",
+    WebkitTouchCallout: "none",
+    WebkitUserSelect: "none",
+    userSelect: "none",
   },
   mainZone: {
     position: "absolute",
